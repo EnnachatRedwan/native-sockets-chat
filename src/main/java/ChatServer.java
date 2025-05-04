@@ -25,11 +25,10 @@ public class ChatServer extends Thread {
             log.info("Waiting for clients to connect...");
             while (true) {
                 Socket newClientSocket = serverSocket.accept();
-                String clientId = UUID.randomUUID().toString();
-                UserChatHandler newUserChatHandler = new UserChatHandler(clientId, newClientSocket, usersChats);
+                UserChatHandler newUserChatHandler = new UserChatHandler(newClientSocket, usersChats);
                 usersChats.add(newUserChatHandler);
-                log.info("New client connected: {}", clientId);
-                log.info("{} ip address is {}", clientId, newClientSocket.getRemoteSocketAddress());
+                log.info("New client connected");
+                log.info("ip address is {}", newClientSocket.getRemoteSocketAddress());
                 newUserChatHandler.start();
             }
         } catch (IOException e) {

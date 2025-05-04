@@ -1,22 +1,24 @@
 package handlers;
 
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.List;
 
+@EqualsAndHashCode(callSuper = true)
+@Data
 @Slf4j
 public class UserChatHandler extends Thread {
 
-    private final String id;
-
+    private String userName;
     private final Socket socket;
     private final List<UserChatHandler> activeUsersChats;
 
-    public UserChatHandler(String id, Socket socket, List<UserChatHandler> activeUsersChats) {
+    public UserChatHandler(Socket socket, List<UserChatHandler> activeUsersChats) {
         this.socket = socket;
-        this.id = id;
         this.activeUsersChats = activeUsersChats;
     }
 
@@ -29,28 +31,66 @@ public class UserChatHandler extends Thread {
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
                 String message = bufferedReader.readLine();
                 if (message.trim().equalsIgnoreCase("exit")) {
-                    activeUsersChats.remove(this);
-                    broadcastMessage("User with id : " + this.id + " disconnected");
-                    log.info("User with id : {} disconnected", this.id);
-                    socket.close();
+                    exit();
                     return;
                 }
-                broadcastMessage(message);
+                if (message.trim().contains(">")) {
+                    String receiverUserName = message.split(">")[0].trim();
+                    String messageContent = message.split(">")[1].trim();
+                    UserChatHandler userToSend = activeUsersChats
+                            .stream()
+                            .filter(u -> u.getUserName() != null)
+                            .filter(u -> u.getUserName().equalsIgnoreCase(receiverUserName))
+                            .findFirst()
+                            .orElse(null);
+                    if (userToSend == null) {
+                        sendMeMessage("User '" + receiverUserName + "' not found or not set a username yet.");
+                        continue;
+                    }
+                    userToSend.sendMeMessage(this.userName + " : " + messageContent);
+                    continue;
+                }
+                if (message.trim().contains("username:")) {
+                    setUserName(message.trim().split(":")[1].trim());
+                    this.sendMeMessage("username set as: " + userName);
+                    continue;
+                }
+                if (userName == null) {
+                    this.sendMeMessage("You should enter a user name first");
+                    continue;
+                }
+
+                broadcastMessage(userName, message);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 
-    private synchronized void broadcastMessage(String message) {
+    private synchronized void broadcastMessage(String userName, String message) {
         this.activeUsersChats.forEach(chatHandler -> {
             try {
-                chatHandler.sendMeMessage(message);
+                chatHandler.sendMeMessage(userName + " : " + message);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
-        log.info("User with id : {} broadcast message : {}", this.id, message);
+        log.info("{} broadcast message : {}", this.userName, message);
+    }
+
+    private void exit(){
+        activeUsersChats.remove(this);
+        broadcastMessage(userName, "Disconnected");
+        log.info("{} disconnected", this.userName);
+        try {
+            socket.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setUserName(String userName) {
+        this.userName = userName;
     }
 
     public void sendMeMessage(String message) throws IOException {
