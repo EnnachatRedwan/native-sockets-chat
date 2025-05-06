@@ -20,8 +20,8 @@ public class ChatServer extends Thread {
     @Override
     public void run() {
         try {
-            ServerSocket serverSocket = new ServerSocket(8080);
-            log.info("Chat server started on port 8080");
+            ServerSocket serverSocket = new ServerSocket(8081);
+            log.info("Chat server started on port 8081");
             log.info("Waiting for clients to connect...");
             while (true) {
                 Socket newClientSocket = serverSocket.accept();
